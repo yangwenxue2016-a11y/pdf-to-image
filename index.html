@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PDF转图片工具</title>
+  <!-- 依赖库 -->
+  <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.4.120/build/pdf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: "Microsoft YaHei", sans-serif;
+    }
+    body {
+      padding: 20px;
+      background: #f5f7fa;
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    .lang-btn {
+      padding: 6px 12px;
+      border: none;
+      background: #409eff;
+      color: white;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .container {
+      display: flex;
+      gap: 20px;
+      height: calc(100vh - 100px);
+    }
+    /* 左侧参数面板 */
+    .left-panel {
+      width: 320px;
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      overflow-y: auto;
+    }
+    .panel-title {
+      font-size: 18px;
+      font-weight: bold;
+      margin-bottom: 20px;
+      color: #333;
+    }
+    .form-item {
+      margin-bottom: 18px;
+    }
+    .form-label {
+      display: block;
+      margin-bottom: 8px;
+      color: #666;
+    }
+    .form-input, .form-select {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+    .btn {
+      width: 100%;
+      padding: 10px;
+      border: none;
+      border-radius: 4px;
+      color: white;
+      font-size: 14px;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+    .btn-export {
+      background: #67c23a;
+    }
+    .btn-long-img {
+      background: #e6a23c;
+    }
+    .tip {
+      font-size: 12px;
+      color: #999;
+      margin-top: 5px;
+    }
+    /* 右侧预览面板 */
+    .right-panel {
+      flex: 1;
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      overflow-y: auto;
+    }
+    .drop-area {
+      border: 2px dashed #ddd;
+      padding: 40px;
+      text-align: center;
+      color: #999;
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+    .drop-area.active {
+      border-color: #409eff;
+      background: #f0f7ff;
+    }
+    .pdf-preview {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 15px;
+      margin-top: 10px;
+    }
+    /* 显示缩略图样式 */
+    .pdf-page {
+      position: relative;
+      border: 1px solid #eee;
+      border-radius: 6px;
+      overflow: hidden;
+      background: #fafafa;
+    }
+    .page-check {
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      width: 18px;
+      height: 18px;
+      z-index: 10;
+      cursor: pointer;
+    }
+    .page-img {
+      width: 180px;
+      height: auto;
+      display: block;
+    }
+    /* 长图拼接容器 */
+    #longImgContainer {
+      display: none;
+      margin-top: 20px;
+      padding: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1 id="appTitle">PDF转图片工具</h1>
+    <button class="lang-btn" id="langBtn">English</button>
+  </div>
+
+  <div class="container">
+    <!-- 左侧参数栏 -->
+    <div class="left-panel">
+      <div class="panel-title" id="paramsTitle">参数设置</div>
+      
+      <div class="form-item">
+        <label class="form-label" id="pageRangeLabel">页面范围</label>
+        <input type="text" class="form-input" id="pageRange" placeholder="例如：1,3-5 留空为全部">
+        <div class="tip" id="pageRangeTip">可在右侧预览勾选，优先级更高</div>
+      </div>
+
+      <div class="form-item">
+        <label class="form-label" id="qualityLabel">图片分辨率</label>
+        <select class="form-select" id="imgQuality">
+          <option value="300">流畅 - 300px</option>
+          <option value="1000" selected>高清 - 1000px</option>
+          <option value="2000">超清 - 2000px</option>
+        </select>
+      </div>
+
+      <button class="btn btn-export" id="exportZipBtn">导出选中页为图包（ZIP）</button>
+
+      <div style="margin: 25px 0; border-top: 1px solid #eee;"></div>
+
+      <div class="panel-title" id="longImgTitle">长图拼接设置</div>
+      <div class="form-item">
+        <label class="form-label" id="colsLabel">每行列数</label>
+        <input type="number" class="form-input" id="cols" value="2" min="1">
+      </div>
+      <div class="form-item">
+        <label class="form-label" id="marginLabel">外间距(px)</label>
+        <input type="number" class="form-input" id="margin" value="20" min="0">
+      </div>
+      <div class="form-item">
+        <label class="form-label" id="paddingLabel">内间距(px)</label>
+        <input type="number" class="form-input" id="padding" value="10" min="0">
+      </div>
+      <div class="form-item">
+        <label class="form-label" id="bgColorLabel">背景颜色</label>
+        <input type="color" class="form-input" id="bgColor" value="#ffffff">
+      </div>
+      <button class="btn btn-long-img" id="exportLongImgBtn">生成并导出拼接长图</button>
+
+      <div class="tip" style="margin-top: 20px;" id="safeTip">✅ 本地处理，不上传服务器，安全保障</div>
+    </div>
+
+    <!-- 右侧预览区 -->
+    <div class="right-panel">
+      <div class="drop-area" id="dropArea">
+        <div id="dropText">将PDF文件拖放到此处，或点击选择文件</div>
+        <input type="file" id="pdfFile" accept="application/pdf" style="display: none;">
+      </div>
+      <div class="pdf-preview" id="pdfPreview"></div>
+      <div id="longImgContainer"></div>
+    </div>
+  </div>
+
+  <script>
+    // ========== 国际化配置 ==========
+    const langConfig = {
+      zh: {
+        appTitle: "PDF转图片工具",
+        paramsTitle: "参数设置",
+        pageRangeLabel: "页面范围",
+        pageRangeTip: "可在右侧预览勾选，优先级更高",
+        qualityLabel: "图片分辨率",
+        exportZipBtn: "导出选中页为图包（ZIP）",
+        longImgTitle: "长图拼接设置",
+        colsLabel: "每行列数",
+        marginLabel: "外间距(px)",
+        paddingLabel: "内间距(px)",
+        bgColorLabel: "背景颜色",
+        exportLongImgBtn: "生成并导出拼接长图",
+        safeTip: "✅ 本地处理，不上传服务器，安全保障",
+        dropText: "将PDF文件拖放到此处，或点击选择文件",
+        noPdf: "请先上传PDF文件",
+        noPage: "请选择需要导出的页面",
+        exporting: "正在导出...",
+        longImgSuccess: "长图生成成功"
+      },
+      en: {
+        appTitle: "PDF to Image Converter",
+        paramsTitle: "Settings",
+        pageRangeLabel: "Page Range",
+        pageRangeTip: "Check pages on right, higher priority",
+        qualityLabel: "Image Quality",
+        exportZipBtn: "Export Selected as ZIP",
+        longImgTitle: "Long Image Settings",
+        colsLabel: "Columns per Row",
+        marginLabel: "Margin(px)",
+        paddingLabel: "Padding(px)",
+        bgColorLabel: "Background Color",
+        exportLongImgBtn: "Generate & Export Long Image",
+        safeTip: "✅ Local processing, no upload, secure",
+        dropText: "Drag & drop PDF here, or click to select",
+        noPdf: "Please upload a PDF first",
+        noPage: "Please select pages to export",
+        exporting: "Exporting...",
+        longImgSuccess: "Long image generated successfully"
+      }
+    };
+
+    let currentLang = navigator.language.includes('zh') ? 'zh' : 'en';
+    const langElements = document.querySelectorAll('[id]');
+    function changeLang(lang) {
+      currentLang = lang;
+      langElements.forEach(el => {
+        if (langConfig[lang][el.id]) el.textContent = langConfig[lang][el.id];
+      });
+      document.getElementById('langBtn').textContent = lang === 'zh' ? 'English' : '中文';
+    }
+    document.getElementById('langBtn').addEventListener('click', () => {
+      changeLang(currentLang === 'zh' ? 'en' : 'zh');
+    });
+    changeLang(currentLang);
+
+    // ========== 全局变量 ==========
+    let pdfDoc = null;
+    let pageImages = [];
+    const pdfPreview = document.getElementById('pdfPreview');
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.4.120/build/pdf.worker.min.js';
+
+    // ========== PDF上传/拖拽 ==========
+    const dropArea = document.getElementById('dropArea');
+    const pdfFile = document.getElementById('pdfFile');
+    dropArea.addEventListener('click', () => pdfFile.click());
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(event => {
+      dropArea.addEventListener(event, e => e.preventDefault());
+    });
+    dropArea.addEventListener('dragover', () => dropArea.classList.add('active'));
+    dropArea.addEventListener('dragleave', () => dropArea.classList.remove('active'));
+    dropArea.addEventListener('drop', e => {
+      dropArea.classList.remove('active');
+      const file = e.dataTransfer.files[0];
+      if (file?.type === 'application/pdf') handlePdf(file);
+    });
+    pdfFile.addEventListener('change', e => {
+      if (e.target.files[0]) handlePdf(e.target.files[0]);
+    });
+
+    // ========== 加载PDF + 显示清晰缩略图 ==========
+    async function handlePdf(file) {
+      const arrayBuffer = await file.arrayBuffer();
+      pdfDoc = await pdfjsLib.getDocument(arrayBuffer).promise;
+      pdfPreview.innerHTML = '';
+      pageImages = [];
+      const quality = document.getElementById('imgQuality').value;
+
+      for (let i = 1; i <= pdfDoc.numPages; i++) {
+        const page = await pdfDoc.getPage(i);
+        const viewport = page.getViewport({ scale: 1 });
+        const scale = quality / viewport.width;
+        const newViewport = page.getViewport({ scale });
+        
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = newViewport.width;
+        canvas.height = newViewport.height;
+        await page.render({ canvasContext: ctx, viewport: newViewport }).promise;
+        
+        const imgData = canvas.toDataURL('image/jpeg', 0.95);
+        pageImages.push({ pageNum: i, imgData });
+        
+        // 显示：缩略图 + 勾选框
+        const pageBox = document.createElement('div');
+        pageBox.className = 'pdf-page';
+        pageBox.innerHTML = `
+          <input type="checkbox" class="page-check" data-page="${i}" checked>
+          <img src="${imgData}" class="page-img">
+        `;
+        pdfPreview.appendChild(pageBox);
+      }
+    }
+
+    // ========== 获取选中的页面 ==========
+    function getSelectedPages() {
+      const checks = document.querySelectorAll('.page-check:checked');
+      if (checks.length) return Array.from(checks).map(c => parseInt(c.dataset.page));
+      
+      const range = document.getElementById('pageRange').value.trim();
+      if (!range) return Array.from({ length: pdfDoc.numPages }, (_, i) => i + 1);
+      
+      const pages = [];
+      range.split(',').forEach(p => {
+        if (p.includes('-')) {
+          const [s, e] = p.split('-').map(Number);
+          for (let i = s; i <= e; i++) pages.push(i);
+        } else if (p) pages.push(Number(p));
+      });
+      return [...new Set(pages)].filter(p => p >= 1 && p <= pdfDoc.numPages);
+    }
+
+    // ========== 导出ZIP ==========
+    document.getElementById('exportZipBtn').addEventListener('click', async () => {
+      if (!pdfDoc) return alert(langConfig[currentLang].noPdf);
+      const selected = getSelectedPages();
+      if (!selected.length) return alert(langConfig[currentLang].noPage);
+      
+      const zip = new JSZip();
+      selected.forEach(p => {
+        const img = pageImages.find(item => item.pageNum === p);
+        if (img) zip.file(`page_${p}.jpg`, img.imgData.split(',')[1], { base64: true });
+      });
+      
+      const blob = await zip.generateAsync({ type: 'blob' });
+      saveAs(blob, 'pdf_images.zip');
+    });
+
+    // ========== 生成长图 ==========
+    document.getElementById('exportLongImgBtn').addEventListener('click', async () => {
+      if (!pdfDoc) return alert(langConfig[currentLang].noPdf);
+      const selected = getSelectedPages();
+      if (!selected.length) return alert(langConfig[currentLang].noPage);
+      
+      const container = document.getElementById('longImgContainer');
+      container.style.display = 'block';
+      container.innerHTML = '';
+      container.style.padding = `${document.getElementById('margin').value}px`;
+      container.style.background = document.getElementById('bgColor').value;
+      container.style.display = 'inline-block';
+      
+      const wrapper = document.createElement('div');
+      wrapper.style.display = 'grid';
+      wrapper.style.gridTemplateColumns = `repeat(${document.getElementById('cols').value}, 1fr)`;
+      wrapper.style.gap = document.getElementById('padding').value + 'px';
+      
+      selected.forEach(p => {
+        const img = pageImages.find(item => item.pageNum === p);
+        const imgEl = document.createElement('img');
+        imgEl.src = img.imgData;
+        imgEl.style.width = '100%';
+        wrapper.appendChild(imgEl);
+      });
+      container.appendChild(wrapper);
+      
+      const canvas = await html2canvas(container, { useCORS: true, scale: 2 });
+      canvas.toBlob(blob => saveAs(blob, 'long_image.jpg'));
+      alert(langConfig[currentLang].longImgSuccess);
+    });
+  </script>
+</body>
+</html>

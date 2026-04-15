@@ -1,0 +1,62 @@
+# PDF 转图片工具 / PDF to Images
+
+这是一个适合直接部署到 **GitHub Pages** 的纯前端工具，支持：
+
+- PDF 拖拽上传
+- 右侧逐页高清预览
+- 勾选任意页面
+- 按页码范围批量勾选
+- 导出选中页面为 JPG 图包（ZIP）
+- 生成拼接长图
+- 中英文自动切换与手动切换
+- 全程本地处理，PDF 不上传服务器
+
+## 适合你的仓库
+
+你当前账号下已经有：
+
+- `pdf-chaifen`
+
+这个仓库本身就是 HTML 仓库，很适合直接替换成这个版本。
+
+## 部署方式
+
+### 方案一：直接覆盖 `pdf-chaifen`
+
+1. 打开 `pdf-chaifen` 仓库
+2. 用本目录中的 `index.html` 替换仓库根目录原有 `index.html`
+3. 用本目录中的 `README.md` 替换原有 `README.md`
+4. 提交到 `main` 分支
+5. 到 GitHub 仓库设置里开启 **Pages**
+   - Source: `Deploy from a branch`
+   - Branch: `main`
+   - Folder: `/ (root)`
+6. 保存后等待 GitHub Pages 发布
+
+### 方案二：部署到 `yangwenxue2016-a11y.github.io`
+
+如果你想把它作为主页站点发布：
+
+1. 打开 `yangwenxue2016-a11y.github.io`
+2. 用本目录中的 `index.html` 覆盖原首页
+3. 提交到默认分支
+4. GitHub 会自动将该仓库作为用户主页站点发布
+
+## 技术说明
+
+- 前端：原生 HTML + CSS + JavaScript
+- PDF 预览与渲染：`pdf.js`
+- ZIP 打包：`JSZip`
+- 不依赖后端，不上传文件
+- 适合 GitHub Pages、静态托管、内网静态部署
+
+## 建议
+
+如果你后续还想继续升级，我建议下一步增加：
+
+- 导出 PNG
+- 自定义文件命名规则
+- 预览缩放比例调节
+- 长图自动分页拼接
+- 深色/浅色主题切换
+- 最近参数记忆

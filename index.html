@@ -271,6 +271,7 @@
     // ========== 全局变量 ==========
     let pdfDoc = null;
     let pageImages = [];
+    let pdfFileName = "pdf_document"; // 保存PDF原文件名
     const pdfPreview = document.getElementById('pdfPreview');
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.4.120/build/pdf.worker.min.js';
 
@@ -286,10 +287,17 @@
     dropArea.addEventListener('drop', e => {
       dropArea.classList.remove('active');
       const file = e.dataTransfer.files[0];
-      if (file?.type === 'application/pdf') handlePdf(file);
+      if (file?.type === 'application/pdf') {
+        pdfFileName = file.name.replace(/\.pdf$/i, '');
+        handlePdf(file);
+      }
     });
     pdfFile.addEventListener('change', e => {
-      if (e.target.files[0]) handlePdf(e.target.files[0]);
+      if (e.target.files[0]) {
+        const file = e.target.files[0];
+        pdfFileName = file.name.replace(/\.pdf$/i, '');
+        handlePdf(file);
+      }
     });
 
     // ========== 加载PDF + 显示清晰缩略图 ==========
@@ -344,7 +352,7 @@
       return [...new Set(pages)].filter(p => p >= 1 && p <= pdfDoc.numPages);
     }
 
-    // ========== 导出ZIP ==========
+    // ========== 导出ZIP（使用PDF原文件名） ==========
     document.getElementById('exportZipBtn').addEventListener('click', async () => {
       if (!pdfDoc) return alert(langConfig[currentLang].noPdf);
       const selected = getSelectedPages();
@@ -357,10 +365,10 @@
       });
       
       const blob = await zip.generateAsync({ type: 'blob' });
-      saveAs(blob, 'pdf_images.zip');
+      saveAs(blob, `${pdfFileName}.zip`);
     });
 
-    // ========== 生成长图 ==========
+    // ========== 生成长图（使用PDF原文件名） ==========
     document.getElementById('exportLongImgBtn').addEventListener('click', async () => {
       if (!pdfDoc) return alert(langConfig[currentLang].noPdf);
       const selected = getSelectedPages();
@@ -388,7 +396,7 @@
       container.appendChild(wrapper);
       
       const canvas = await html2canvas(container, { useCORS: true, scale: 2 });
-      canvas.toBlob(blob => saveAs(blob, 'long_image.jpg'));
+      canvas.toBlob(blob => saveAs(blob, `${pdfFileName}.jpg`));
       alert(langConfig[currentLang].longImgSuccess);
     });
   </script>
